@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Космический Квест</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #050510; overflow: hidden; }
+    </style>
+</head>
+<body>
+    <script>
+        // Создаем игровое поле
+        const stage = document.createElement('div');
+        stage.style = 'width:100vw; height:100vh; background: radial-gradient(circle at center, #0b0b26 0%, #020208 100%); position:fixed; left:0; top:0; overflow:hidden; font-family: "Segoe UI", sans-serif; user-select:none; touch-action:none;';
+        document.body.appendChild(stage);
+
+        // Звездное небо
+        for (let i = 0; i < 40; i++) {
+            const star = document.createElement('div');
+            star.style = `position:absolute; width:${Math.random()*3}px; height:${Math.random()*3}px; background:#fff; left:${Math.random()*100}%; top:${Math.random()*100}%; opacity:${Math.random()};`;
+            stage.appendChild(star);
+        }
+
+        // Ракета
+        const rocket = document.createElement('div');
+        rocket.innerHTML = '🚀'; rocket.style = 'font-size:50px; position:absolute; bottom:50px; left:45%; will-change: transform; pointer-events:none; transition: transform 0.1s; filter: drop-shadow(0 0 10px #00d2ff); z-index: 5;';
+        stage.appendChild(rocket);
+
+        // Интерфейс счета
+        const scoreElement = document.createElement('div');
+        scoreElement.style = 'position:absolute; top:20px; left:20px; color:#00d2ff; font-size:20px; font-weight:bold; text-shadow: 0 0 5px #00d2ff; z-index: 6;';
+        scoreElement.innerText = 'СЧЕТ: 0';
+        stage.appendChild(scoreElement);
+
+        let score = 0;
+        let rocketX = window.innerWidth / 2 - 25;
+        let gameActive = false;
+        let spawnInterval, gameLoop;
+        let meteors = [];
+        let meteorSpeed = 5;
+
+        // Стартовое меню
+        const menu = document.createElement('div');
+        menu.style = 'position:absolute; width:100%; height:100%; background:rgba(5, 5, 20, 0.9); display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; z-index:10; text-align:center; padding: 20px; box-sizing: border-box;';
+        menu.innerHTML = `
+          <h1 style="margin:0 0 10px 0; font-size:36px; color:#ff0055; text-shadow: 0 0 15px #ff0055; letter-spacing:2px;">КОСМИЧЕСКИЙ КВЕСТ</h1>
+          <p style="margin:0 0 40px 0; color:#00d2ff; font-size:14px; font-weight:bold;">Води пальцем внизу экрана и уворачивайся от метеоритов!</p>
+        `;
+        stage.appendChild(menu);
+
+        const startBtn = document.createElement('button');
+        startBtn.innerText = 'ПОЕХАЛИ! 🚀';
+        startBtn.style = 'padding:15px 40px; font-size:18px; font-weight:bold; background:#00d2ff; color:#050510; border:none; border-radius:12px; cursor:pointer; box-shadow: 0 0 20px rgba(0,210,255,0.5); text-transform:uppercase;';
+        startBtn.onclick = startGame;
+        menu.appendChild(startBtn);
+
+        function startGame() {
+            menu.style.display = 'none';
+            score = 0;
+            meteorSpeed = 5;
+            scoreElement.innerText = 'СЧЕТ: 0';
+            meteors.forEach(m => m.remove());
+            meteors = [];
+            rocketX = window.innerWidth / 2 - 25;
+            rocket.style.left = rocketX + 'px';
+            gameActive = true;
+
+            // Спавн метеоритов
+            spawnInterval = setInterval(() => {
+                if (!gameActive) return;
+                const meteor = document.createElement('div');
+                meteor.innerHTML = Math.random() > 0.5 ? '☄️' : '💥';
+                meteor.style = `position:absolute; font-size:${Math.random()*20 + 30}px; top:-50px; left:${Math.random()*85}%; will-change: transform; z-index:4;`;
+                stage.appendChild(meteor);
+                meteors.push(meteor);
+            }, 600);
+
+            runGame();
+        }
+
+        // Мобильное управление пальцем
+        function moveRocket(e) {
+            if (!gameActive) return;
+            let clientX;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+            } else {
+                clientX = e.clientX;
+            }
+            rocketX = clientX - 25;
+            if (rocketX < 0) rocketX = 0;
+            if (rocketX > window.innerWidth - 50) rocketX = window.innerWidth - 50;
+            rocket.style.left = rocketX + 'px';
+        }
+
+        stage.addEventListener('touchstart', moveRocket);
+        stage.addEventListener('touchmove', moveRocket);
+        stage.addEventListener('mousemove', moveRocket);
+
+        function runGame() {
+            gameLoop = setInterval(() => {
+                if (!gameActive) return;
+
+                // Движение метеоритов
+                for (let i = meteors.length - 1; i >= 0; i--) {
+                    const m = meteors[i];
+                    let topPos = parseFloat(m.style.top) || -50;
+                    topPos += meteorSpeed;
+                    m.style.top = topPos + 'px';
+
+                    // Проверка столкновения
+                    const rRect = rocket.getBoundingClientRect();
+                    const mRect = m.getBoundingClientRect();
+
+                    if (
+                        mRect.left < rRect.right &&
+                        mRect.right > rRect.left &&
+                        mRect.top < rRect.bottom &&
+                        mRect.bottom > rRect.top
+                    ) {
+                        gameOver();
+                    }
+
+                    // Если улетел за экран
+                    if (topPos > window.innerHeight) {
+                        m.remove();
+                        meteors.splice(i, 1);
+                        score += 10;
+                        scoreElement.innerText = 'СЧЕТ: ' + score;
+                        if (score % 100 === 0) meteorSpeed += 1; // Увеличиваем скорость
+                    }
+                }
+            }, 20);
+        }
+
+        function gameOver() {
+            gameActive = false;
+            clearInterval(gameLoop);
+            clearInterval(spawnInterval);
+            menu.style.display = 'flex';
+            menu.innerHTML = `
+                <h1 style="margin:0 0 10px 0; font-size:40px; color:#ff0055; text-shadow: 0 0 15px #ff0055;">КОСМИЧЕСКИЙ ВЗРЫВ! 💥</h1>
+                <p style="margin:0 0 30px 0; font-size:22px; color:#fff;">Твой счет: <span style="color:#00d2ff; font-weight:bold;">${score}</span></p>
+            `;
+            menu.appendChild(startBtn);
+            startBtn.innerText = 'ИГРАТЬ ЕЩЕ РАЗ 🔄';
+        }
+    </script>
+</body>
+</html>
